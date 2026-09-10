@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+*.log
+coverage/
+.DS_Store
+.env
+*.tmp
+.lumen-data/

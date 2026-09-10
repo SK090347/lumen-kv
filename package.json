@@ -1,0 +1,54 @@
+{
+  "name": "lumen-kv",
+  "version": "1.0.0",
+  "description": "Educational LSM-tree key-value store from scratch in TypeScript",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc",
+    "test:watch": "vitest",
+    "cli": "tsx src/cli.ts",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "lsm-tree",
+    "database",
+    "key-value-store",
+    "typescript",
+    "systems",
+    "portfolio"
+  ],
+  "author": "Sumit Kumar Ta <SK090347>",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "lumen": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SK090347/lumen-kv.git"
+  },
+  "homepage": "https://github.com/SK090347/lumen-kv#readme",
+  "bugs": {
+    "url": "https://github.com/SK090347/lumen-kv/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "LICENSE-APACHE",
+    "NOTICE"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "tsx": "^4.23.13",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}
