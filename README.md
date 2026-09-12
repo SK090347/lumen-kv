@@ -6,9 +6,41 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE-APACHE)
 
-> Built by [Sumit Kumar Ta](https://github.com/SK090347) as a portfolio-flagship systems project — the kind of engine you’d sketch on a whiteboard at IIT/MIT systems interviews, then actually ship.
+> Built by [Sumit Kumar Ta](https://github.com/SK090347) as a portfolio systems project — whiteboard LSM design, then an actual Node.js implementation.
 
 No SQLite wrapping. No LevelDB bindings. Pure Node.js + TypeScript implementing the classic **Log-Structured Merge-Tree** write path.
+
+---
+
+## Mathematics / Formulation
+
+Writes append to a WAL and land in an in-memory **memtable**. When the memtable hits a flush threshold, it becomes an immutable **SSTable** on disk. Reads probe memtable → L0…Lk SSTs (newest sequence wins). Compaction merges runs to control amplification.
+
+### Amplification tradeoffs
+
+| Metric | Informal definition | Typical LSM behavior |
+|--------|---------------------|----------------------|
+| Write amp | Bytes written to disk / logical bytes ingested | $> 1$ (compaction rewrites) |
+| Read amp | SST / bloom probes per `get` | Memtable + up to $\#$ overlapping runs |
+| Space amp | Bytes on disk / live logical data | Tombstones until compacted |
+
+Point lookup cost with a sparse index is roughly $O(\log n)$ index steps + one I/O per candidate SST (Bloom filters skip most negatives).
+
+### Bloom filter false-positive rate
+
+With $m$ bits, $n$ keys, $k$ hash functions (Kirsch–Mitzenmacher double hashing):
+
+$$
+\mathrm{FPR} \approx \bigl(1 - e^{-kn/m}\bigr)^{k}
+$$
+
+Optimal $k \approx (m/n)\ln 2$. Filters are false-negative free: “no” means the key is absent.
+
+### Sequence resolution
+
+Each put/delete gets a monotonic sequence number $s$. On merge / read, for key $k$ keep the record with maximal $s$; tombstones suppress older values until deep compaction GC.
+
+**Why this formula?** LSM math is about *amplification*, not a single closed PDE — recruiters want to see you can quantify write/read/space tradeoffs and Bloom FPR, then wire memtable → SST → compaction.
 
 ---
 
@@ -110,12 +142,14 @@ await db.close();
 
 | Module | Role | Complexity notes |
 |---|---|---|
-| `Memtable` | In-memory sorted map (skip-list *API*, binary-search key array) | Get O(1) avg via `Map`; ordered insert O(n) splice — fine at ~1k flush size. Production: skip list O(log n). |
+| `Memtable` | In-memory sorted map (skip-list *API*, binary-search key array) | Get O(1) avg via `Map`; ordered insert O(n) splice — fine at ~1k flush size. Production: skip list $O(\log n)$. |
 | `WAL` | Length-prefixed binary records; replay on open; checkpoint after flush | Append O(1); recovery O(bytes) |
-| `SSTable` | Immutable sorted file + sparse index + Bloom | Point lookup O(log n) index + 1 I/O; scan O(n) |
+| `SSTable` | Immutable sorted file + sparse index + Bloom | Point lookup $O(\log n)$ index + 1 I/O; scan $O(n)$ |
 | `BloomFilter` | Double-hashing (Kirsch–Mitzenmacher) over SHA-256 seeds | False-negative free; tunable FPR |
-| `compaction` | Size-tiered k-way merge by key/seq | Merge O(N log k) with materialization for clarity |
+| `compaction` | Size-tiered k-way merge by key/seq | Merge $O(N \log k)$ with materialization for clarity |
 | `LumenDB` | Orchestrates open / put / get / delete / scan / flush | Sequence numbers resolve multi-SST conflicts |
+
+---
 
 ### On-disk layout (`./data`)
 
@@ -177,20 +211,16 @@ tests/            Vitest suites
 
 ---
 
+---
+
 ## License
 
-Dual-licensed under **MIT** OR **Apache-2.0** — your choice. See [`LICENSE`](LICENSE), [`LICENSE-APACHE`](LICENSE-APACHE), and [`NOTICE`](NOTICE).
+Dual-licensed under **MIT** OR **Apache-2.0** — see [LICENSE](LICENSE), [LICENSE-APACHE](LICENSE-APACHE), and [NOTICE](NOTICE).
 
----
+## Author
 
-## References (further reading)
+**Sumit Kumar Ta** ([SK090347](https://github.com/SK090347))
 
-- O’Neil et al., *The Log-Structured Merge-Tree (LSM-Tree)*, Acta Informatica 1996
-- LevelDB / RocksDB design docs
-- Cassandra size-tiered vs LeveledCompactionStrategy
+## Topics
 
----
-
-<p align="center">
-  <sub>Portfolio systems project · Sumit Kumar Ta (SK090347) · 2026</sub>
-</p>
+`lsm` · `key-value-store` · `typescript` · `database` · `systems` · `portfolio`
