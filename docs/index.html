@@ -1,23 +1,99 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>lumen-kv</title>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>lumen-kv — LSM lab</title>
+<meta name="description" content="Interactive LSM key-value lab — memtable, flush to SST, Bloom hit/miss storytelling."/>
 <style>
-:root{--bg:#0d1117;--card:#161b22;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff}
-body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,sans-serif}
-main{max-width:720px;margin:0 auto;padding:48px 20px}
-h1{margin:0 0 8px;font-size:2rem}.sub{color:var(--muted);margin-bottom:24px}
-a.btn{display:inline-block;margin:6px 8px 6px 0;padding:10px 14px;border-radius:10px;text-decoration:none;border:1px solid #30363d;background:var(--card);color:var(--text)}
-a.primary{background:#238636;border-color:#238636;color:#fff;font-weight:600}
-code{background:#21262d;padding:2px 6px;border-radius:6px}
+:root{--bg:#0d1117;--card:#161b22;--panel:#0f141c;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--border:#30363d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.banner{background:linear-gradient(120deg,#161b22,#0d1117 60%,#122033);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:18px;color:var(--muted);font-size:.92rem}
+.banner strong{color:var(--text)}
+h1{margin:0 0 6px;font-size:clamp(1.5rem,3vw,2rem);letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 18px;max-width:70ch}
+a{color:var(--accent)} .row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;align-items:end}
+button{appearance:none;border:1px solid var(--border);background:#21262d;color:var(--text);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer}
+button.primary{background:#238636;border-color:#238636;color:#fff}button:hover{filter:brightness(1.08)}
+input,textarea{background:var(--panel);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;width:100%}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin:12px 0}
+.muted{color:var(--muted)} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase}
+.field{flex:1;min-width:110px}
+.sst{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px;margin:6px 0}
+.mem{min-height:60px;background:var(--panel);border:1px dashed #58a6ff66;border-radius:8px;padding:10px}
+.log{max-height:180px;overflow:auto;background:#010409;border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre-wrap}
 </style></head><body><main>
-<h1>lumen-kv</h1>
-<p class="sub">LSM-tree key-value store — memtable, WAL, SST, compaction, Bloom.</p>
-<p>This repo is library / systems code — clone and run locally for the full experience.</p>
-<pre style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;overflow:auto"><code>git clone https://github.com/SK090347/lumen-kv.git
-cd lumen-kv
-npm install && npm test</code></pre>
-<p style="margin-top:22px">
-  <a class="btn primary" href="https://github.com/SK090347/lumen-kv">Open on GitHub</a>
-  <a class="btn" href="https://sk090347.github.io/portfolio/">Back to portfolio</a>
-</p>
-</main></body></html>
+<div class="banner"><strong>What is this?</strong> A toy LSM: puts land in an in-memory memtable. Flush freezes them into an SST with a Bloom filter. Gets check memtable → newest SST first, and narrate Bloom miss (skip) vs hit (probe).</div>
+<h1>lumen-kv <span style="color:var(--accent)">· LSM lab</span></h1>
+<p class="sub">From-scratch LSM teaching model — memtable, SST list, Bloom filters. Pair with the real TypeScript engine in the <a href="https://github.com/SK090347/lumen-kv">repo</a>.</p>
+<div class="card">
+  <div class="row">
+    <div class="field"><label>Key</label><input id="key" value="user:42"/></div>
+    <div class="field"><label>Value</label><input id="val" value="sumit"/></div>
+    <button class="primary" id="put">Put</button>
+    <button id="get">Get</button>
+    <button id="flush">Flush memtable → SST</button>
+    <button id="clr">Reset</button>
+  </div>
+</div>
+<div class="grid2">
+  <div class="card"><div class="muted" style="font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Memtable <span id="memcount"></span></div><div class="mem mono" id="mem">empty</div>
+  <p class="muted" style="font-size:.85rem;margin:8px 0 0">Writes go here first (sorted map). Flush when you want them on “disk”.</p></div>
+  <div class="card"><div class="muted" style="font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">SSTables (newest first)</div><div id="ssts"><span class="muted">none yet — flush to create</span></div></div>
+</div>
+<div class="card"><div class="muted" style="font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Story log</div><div class="log mono" id="log">Ready. Put a few keys, Flush, then Get — watch Bloom miss/hit.</div></div>
+<p class="muted" style="font-size:.85rem"><a href="https://sk090347.github.io/portfolio/">← portfolio</a></p>
+<script>
+function bloom(m){return {bits:new Uint8Array(m||64), m:m||64};}
+function h(s,seed){var x=seed>>>0; for(var i=0;i<s.length;i++){x^=s.charCodeAt(i); x=Math.imul(x,0x01000193);} return x>>>0;}
+function bloomAdd(b,k){[1,2,3].forEach(function(seed){b.bits[h(k,seed)%b.m]=1;});}
+function bloomMaybe(b,k){return [1,2,3].every(function(seed){return b.bits[h(k,seed)%b.m];});}
+
+var mem=new Map(), seq=0, ssts=[];
+var logEl=document.getElementById('log');
+function log(line, color){
+  var t=document.createElement('div'); t.textContent=line; if(color) t.style.color=color;
+  logEl.prepend(t);
+}
+function render(){
+  document.getElementById('memcount').textContent='('+mem.size+' keys)';
+  document.getElementById('mem').textContent=mem.size? Array.from(mem.entries()).map(function(e){return e[0]+' → '+e[1].v+'  (seq '+e[1].s+')';}).join('\n'):'empty';
+  var box=document.getElementById('ssts');
+  if(!ssts.length){box.innerHTML='<span class="muted">none yet — flush to create</span>';return;}
+  box.innerHTML=ssts.map(function(s){
+    var keys=Array.from(s.map.keys());
+    return '<div class="sst mono"><b>SST-'+s.id+'</b> · '+s.map.size+' keys · Bloom '+s.bloom.m+' bits<br/>'+
+      keys.slice(0,8).join(', ')+(keys.length>8?'…':'')+'</div>';
+  }).join('');
+}
+document.getElementById('put').onclick=function(){
+  var k=document.getElementById('key').value.trim(); var v=document.getElementById('val').value;
+  if(!k) return; seq++; mem.set(k,{v:v,s:seq});
+  log('PUT '+k+' → '+v+'  (memtable, seq '+seq+')','#58a6ff'); render();
+};
+document.getElementById('flush').onclick=function(){
+  if(!mem.size){log('Nothing to flush — memtable empty.','#d29922');return;}
+  var b=bloom(64); var map=new Map();
+  mem.forEach(function(val,k){ map.set(k,val); bloomAdd(b,k); });
+  var id=ssts.length+1; ssts.unshift({id:id,map:map,bloom:b}); mem=new Map();
+  log('FLUSH → SST-'+id+' ('+map.size+' keys). Memtable cleared. Bloom primed.','#3fb950'); render();
+};
+document.getElementById('get').onclick=function(){
+  var k=document.getElementById('key').value.trim(); if(!k) return;
+  log('── GET '+k+' ──');
+  if(mem.has(k)){ var x=mem.get(k); log('  memtable HIT → "'+x.v+'" (newest write, no disk)','#3fb950'); return; }
+  log('  memtable miss — checking SSTs newest→oldest…');
+  for(var i=0;i<ssts.length;i++){
+    var s=ssts[i];
+    var maybe=bloomMaybe(s.bloom,k);
+    if(!maybe){ log('  SST-'+s.id+' Bloom MISS → skip file (definitely absent)','#f85149'); continue; }
+    log('  SST-'+s.id+' Bloom HIT → must probe SST…','#d29922');
+    if(s.map.has(k)){ log('  SST-'+s.id+' found → "'+s.map.get(k).v+'"','#3fb950'); return; }
+    log('  SST-'+s.id+' false positive — key not in file (Bloom can lie; never miss a real key)','#8b949e');
+  }
+  log('  NOT FOUND across memtable + all SSTs','#f85149');
+};
+document.getElementById('clr').onclick=function(){mem=new Map();ssts=[];seq=0;logEl.textContent='Reset.';render();};
+render();
+</script></main></body></html>
