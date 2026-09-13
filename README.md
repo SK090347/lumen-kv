@@ -1,5 +1,7 @@
 # lumen-kv
 
+**Live demo:** https://sk090347.github.io/lumen-kv/
+
 A from-scratch LSM key-value store in TypeScript. I built it to learn write amplification the hard way — no LevelDB bindings, no SQLite wrapper, just memtable → WAL → SST → compaction.
 
 [![CI](https://github.com/SK090347/lumen-kv/actions/workflows/ci.yml/badge.svg)](https://github.com/SK090347/lumen-kv/actions/workflows/ci.yml)
